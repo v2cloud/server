@@ -50,9 +50,10 @@ export default function(opt) {
     app.use(authenticated);
 
     router.get('/api/status', async (ctx, next) => {
-        const stats = manager.stats;
+
         ctx.body = {
-            tunnels: stats.tunnels,
+            tunnelsCount: manager.stats.tunnels,
+            tunnels: manager.getClients(),
             mem: process.memoryUsage(),
         };
     });
@@ -175,7 +176,7 @@ export default function(opt) {
         const client = manager.getClient(clientId);
         if (!client) {
             res.statusCode = 404;
-            res.end('404');
+            res.end(`Can't find active tunnel ${clientId}...`);
             return;
         }
 
