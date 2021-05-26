@@ -69,6 +69,11 @@ export default function(opt) {
         const stats = client.stats();
         ctx.body = {
             connected_sockets: stats.connectedSockets,
+            available_sockets: stats.availableSockets,
+            client_address: stats.clientAddress,
+            waiting_connections: stats.waitingConnections,
+            no_more_socket_events: stats.noMoreSocketEvents,
+            is_closed: stats.isClosed,
         };
     });
 
