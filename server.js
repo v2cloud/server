@@ -1,4 +1,3 @@
-import log from 'book';
 import Koa from 'koa';
 import tldjs from 'tldjs';
 import Debug from 'debug';
@@ -6,7 +5,6 @@ import http from 'http';
 const jwt = require('jsonwebtoken');
 import { hri } from 'human-readable-ids';
 import Router from 'koa-router';
-const url = require('url');
 
 import ClientManager from './lib/ClientManager';
 
@@ -16,11 +14,13 @@ const secret = process.env.JWT_SECRET || 'v2cloud-vnc';
 
 const authenticated = async (ctx, next) => {
 
-    const token = ctx.request.headers['vnc-token']; 
+    const token = ctx.request.headers['vnc-token'];
+    debug("TOKEN: ", token);
+
     if (!token) ctx.throw(403, 'No token.');
 
     try {
-        console.log('jwtPayload', jwt.verify(token, secret));
+        debug('authenticated jwt', jwt.verify(token, secret));
     } catch (err) {
         ctx.throw(err.status || 403, err.text);
     }
@@ -98,25 +98,6 @@ export default function(opt) {
     app.use(async (ctx, next) => {
         const path = ctx.request.path;
 
-        console.log("REQUEST PATH", ctx.request.path);
-        console.log("TOKEN", ctx.request.headers['vnc-token']);
-
-        try {
-            const token = ctx.request.headers['vnc-token']; 
-            if (token === undefined)  {
-                ctx.throw(403);
-                return;
-            }
-
-            const jwtPayload = jwt.verify(token, secret);
-            console.log('jwtPayload', jwtPayload);
-
-        } catch (err) {
-            ctx.throw(403);
-            console.log(err);
-            return;
-        }
-
         // skip anything not on the root path
         if (path !== '/') {
             await next();
@@ -178,6 +159,7 @@ export default function(opt) {
     const appCallback = app.callback();
 
     server.on('request', (req, res) => {
+        debug("ON REQUEST URL:", req.url);
         // without a hostname, we won't know who the request is for
         const hostname = req.headers.host;
         if (!hostname) {
@@ -186,7 +168,11 @@ export default function(opt) {
             return;
         }
 
-        const clientId = GetClientIdFromHostname(hostname);
+        // get clientId from route /connect/$clientId
+        const clientId = req.url.substr(0, "/connect".length) === "/connect"
+            ? req.url.substr("/connect/".length)
+            : GetClientIdFromHostname(hostname);
+
         if (!clientId) {
             appCallback(req, res);
             return;
@@ -203,13 +189,17 @@ export default function(opt) {
     });
 
     server.on('upgrade', (req, socket, head) => {
+        debug("ON UPGRADE URL:", req.url);
         const hostname = req.headers.host;
         if (!hostname) {
             socket.destroy();
             return;
         }
 
-        const clientId = GetClientIdFromHostname(hostname);
+        const clientId = req.url.substr(0, "/connect".length) === "/connect"
+            ? req.url.substr("/connect/".length)
+            : GetClientIdFromHostname(hostname);
+
         if (!clientId) {
             socket.destroy();
             return;
